@@ -300,7 +300,10 @@ def openssh_connect(
             users_ssh_dir = os.path.join(os.environ['USERPROFILE'], '.ssh')
     if not os.path.exists(users_ssh_dir):
         mkdir_p(users_ssh_dir)
-    ssh_config_path = os.path.join(users_ssh_dir, 'config')
+    if config:
+	ssh_config_path = config
+    else:
+	ssh_config_path = os.path.join(users_ssh_dir, 'config')
     if not os.path.exists(ssh_config_path):
         # Create it (an empty one so ssh doesn't error out)
         with open(ssh_config_path, 'w') as f:
@@ -719,6 +722,11 @@ def main():
             "credentials only (you probably want to use --default_host and "
             "--default_port as well).")
     )
+    parser.add_option("--config",
+        dest="config",
+        default=None,
+        help=_("Provide an ssh config file location")
+    )
     (options, args) = parser.parse_args()
     if options.logo_path:
         options.logo = True
@@ -738,6 +746,7 @@ def main():
                     identities=parsed.get('identities', []),
                     additional_args=options.additional_args,
                     socket=options.socket,
+		    config=options.config,
                     debug=parsed.get('debug', False)
                 )
         elif len(args) == 2: # No port given, assume 22
@@ -746,7 +755,8 @@ def main():
                 sshfp=options.sshfp,
                 randomart=options.randomart,
                 additional_args=options.additional_args,
-                socket=options.socket
+                socket=options.socket,
+		config=options.config
             )
         elif len(args) == 3:
             openssh_connect(args[0], args[1], args[2],
@@ -754,7 +764,8 @@ def main():
                 sshfp=options.sshfp,
                 randomart=options.randomart,
                 additional_args=options.additional_args,
-                socket=options.socket
+                socket=options.socket,
+		config=options.config
             )
     except Exception:
         pass # Something ain't right.  Try the interactive entry method...
@@ -887,6 +898,7 @@ def main():
                 identities=identities,
                 additional_args=options.additional_args,
                 socket=options.socket,
+		config=options.config,
                 debug=debug
             )
         elif protocol == 'telnet':
