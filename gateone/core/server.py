@@ -19,7 +19,7 @@ __license_info__ = {
     }
 }
 __author__ = 'Dan McDougall <daniel.mcdougall@liftoffsoftware.com>'
-__commit__ = "20140920142541" # Gets replaced by git (holds the date/time)
+__commit__ = "20151103083231" # Gets replaced by git (holds the date/time)
 
 # NOTE: Docstring includes reStructuredText markup for use with Sphinx.
 __doc__ = '''\
@@ -239,7 +239,7 @@ in '@company.com' will get access to the "extra" command when using the
 Running gateone.py with the `--help` switch will print the usage information as
 well as descriptions of what each configurable option does:
 
-.. program-output:: gateone --help
+.. command-output:: gateone --help
 
 File Paths
 ----------
@@ -995,7 +995,6 @@ class MainHandler(BaseHandler):
     """
     @tornado.web.authenticated
     @tornado.web.addslash
-    # TODO: Get this auto-minifying gateone.js
     def get(self):
         # Set our server header so it doesn't say TornadoServer/<version>
         hostname = os.uname()[1]
@@ -1536,9 +1535,12 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
         parsed_origin = urlparse(origin)
         self.origin = parsed_origin.netloc.lower()
         host = self.request.headers.get("Host")
-        if self.origin == host:
-            # Origins match so there's nothing to check, really
-            return True
+        if self.origin == host: # Reality check: Do we care?
+            # If the origin matches the "Host" header it means that the user is
+            # legitimately accessing Gate One directly.  We really only need to
+            # worry about origins if the connection is coming from some external
+            # site (e.g. to prevent spear phishing attacks; XSS and whatnot).
+            return True # Origin check successful; no need to continue
         if 'origins' in self.settings.get('cli_overrides', ''):
             # If given on the command line, always use those origins
             valid_origins = self.settings['origins']
@@ -1559,6 +1561,8 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
                 if match:
                     valid = True
                     break
+        if not valid:
+            logging.error("Origin check failed for: %s" % origin)
         return valid
 
     def open(self):
@@ -2090,8 +2094,15 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
                 expiration = (
                     float(total_seconds(convert_to_timedelta(expiration)))
                     / float(86400))
-                auth_data = self.get_secure_cookie("gateone_user",
-                    value=settings['auth'], max_age_days=expiration)
+                try:
+                    auth_data = self.get_secure_cookie("gateone_user",
+                        value=settings['auth'], max_age_days=expiration)
+                except TypeError:
+                    self.auth_log.error(_(
+                        "Received strange data when performing "
+                        "authentication.  Did you forget to set 'api' in "
+                        "20authentication.conf?"))
+                    return
                 # NOTE:  This will override whatever is in the cookie.
                 # Why?  Because we'll eventually transition to not using cookies
                 if auth_data:
@@ -2121,6 +2132,7 @@ class ApplicationWebSocket(WebSocketHandler, OnOffMixin):
                 #self.close() # Close the WebSocket
         elif auth_method and auth_method == 'api':
             if 'auth' in list(settings.keys()):
+                print("auth settings: %s" % repr(settings['auth']))
                 if not isinstance(settings['auth'], dict):
                     settings['auth'] = json_decode(settings['auth'])
                 user = self.api_auth(settings['auth'])
@@ -3704,7 +3716,7 @@ class GateOneApp(tornado.web.Application):
             (r"%sstatic/(.*)" % url_prefix, StaticHandler, {"path": static_url}
         ))
         # Hook up the hooks
-        for plugin_name, hooks in PLUGIN_HOOKS.items():
+        for hooks in PLUGIN_HOOKS.values():
             if 'Web' in hooks:
                 # Apply the plugin's Web handlers
                 fixed_hooks = []
@@ -4432,9 +4444,18 @@ def main(installed=True):
         if go_settings.get('enable_unix_socket', False):
             https_server.add_socket(
                 tornado.netutil.bind_unix_socket(
-                    go_settings['unix_socket_path']))
-            logger.info(_("Listening on Unix socket '{socketpath}'".format(
-                socketpath=go_settings['unix_socket_path'])))
+                    go_settings['unix_socket_path'],
+                    # Tornado uses octal encoding
+                    int(go_settings['unix_socket_mode'], 8)
+                )
+            )
+            logger.info(_(
+                "Listening on Unix socket '{socketpath}' ({socketmode})"
+                .format(
+                  socketpath=go_settings['unix_socket_path'],
+                  socketmode=go_settings['unix_socket_mode']
+                )
+            ))
         address = none_fix(go_settings['address'])
         if address:
             for addr in address.split(';'):

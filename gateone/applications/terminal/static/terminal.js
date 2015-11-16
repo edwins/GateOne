@@ -430,6 +430,7 @@ go.Base.update(GateOne.Terminal, {
         go.Net.addAction('terminal:encoding', go.Terminal.termEncodingAction);
         go.Net.addAction('terminal:keyboard_mode', go.Terminal.termKeyboardModeAction);
         go.Net.addAction('terminal:shared_terminals', go.Terminal.sharedTerminalsAction);
+        go.Net.addAction('terminal:captured_data', go.Terminal.capturedData);
         go.Terminal.createPrefsPanel();
         E.on("go:panel_toggle:in", updatePrefsfunc);
         E.on("go:restore_defaults", function() {
@@ -1503,6 +1504,66 @@ go.Base.update(GateOne.Terminal, {
                 go.scrollTimeout = setTimeout(function() {
                     u.showElement(pastearea);
                 }, 1000);
+            },
+            pasteareaMousemove = function(e) {
+                var termline = null,
+                    elem = null,
+                    maxRecursion = 10,
+                    count = 0,
+                    X = e.clientX,
+                    Y = e.clientY,
+                    timeout = 50;
+                if (pastearea.style.display != 'none') {
+                    u.hideElement(pastearea);
+                    go.Terminal.Input.pasteareaTemp = pastearea.onmousemove;
+                    pastearea.onmousemove = null;
+                }
+                var elementUnder = document.elementFromPoint(X, Y);
+                while (!termline) {
+                    // Look for special things under the mouse until we've reached the parent container of the line
+                    count += 1;
+                    if (count > maxRecursion) {
+                        break;
+                    }
+                    if (!elem) {
+                        elem = elementUnder;
+                    }
+                    if (typeof(elem.className) == "undefined") {
+                        break;
+                    }
+                    if (elem.className.indexOf && elem.className.indexOf('✈termline') != -1) {
+                        termline = elem; // End it
+                    } else if (elem.tagName.toLowerCase) {
+                        var tagName = elem.tagName.toLowerCase();
+                        if (tagName == 'a' || tagName == 'img' || tagName == 'audio' || tagName == 'video') {
+                            // Anchor elements mean we shouldn't make the pastearea reappear so the user can click on them
+                            if (go.Terminal.pasteAreaTimer) {
+                                clearTimeout(go.Terminal.pasteAreaTimer);
+                                go.Terminal.pasteAreaTimer = null;
+                            }
+                            return;
+                        }
+                    } else if (elem.className.indexOf && elem.className.indexOf('✈clickable') != -1) {
+                        // Clickable elements mean we shouldn't make the pastearea reappear
+                        if (go.Terminal.pasteAreaTimer) {
+                            clearTimeout(go.Terminal.pasteAreaTimer);
+                            go.Terminal.pasteAreaTimer = null;
+                        }
+                        return;
+                    } else {
+                        elem = elem.parentNode;
+                    }
+                }
+                if (go.Terminal.pasteAreaTimer) {
+                    return; // Let it return to visibility on its own
+                }
+                go.Terminal.pasteAreaTimer = setTimeout(function() {
+                    pastearea.onmousemove = go.Terminal.Input.pasteareaTemp;
+                    go.Terminal.pasteAreaTimer = null;
+                    if (!u.getSelText()) {
+                        u.showElement(pastearea);
+                    }
+                }, timeout);
             };
         pastearea.oninput = pasteareaOnInput;
         pastearea.addEventListener(mousewheelevt, pasteareaScroll, true);
@@ -1514,71 +1575,16 @@ go.Base.update(GateOne.Terminal, {
                 go.Terminal.Input.mouseDown = false;
                 go.Terminal.Input.capture();
                 pastearea.value = ''; // Empty it out to ensure there's no leftovers in subsequent pastes
+                pastearea.onmousemove = pasteareaMousemove;
             }, 1);
         }
         pastearea.addEventListener('contextmenu', function(e) {
-            pastearea.focus();
+            // For some reason Chrome will fire infinite mousemove events when the context menu is open (even if the mouse isn't moving!) so we disable the mousemove event while it's open to work around that problem:
+            pastearea.onmousemove = null; // We don't need these events firing while the context menu is open anyway
+            u.showElement(pastearea); // Make sure it's not hidden
+            pastearea.focus(); // Make sure it has focus so the user can paste
         }, false);
-        pastearea.addEventListener('mousemove', function(e) {
-            var termline = null,
-                elem = null,
-                maxRecursion = 10,
-                count = 0,
-                X = e.clientX,
-                Y = e.clientY,
-                timeout = 50;
-            if (pastearea.style.display != 'none') {
-                u.hideElement(pastearea);
-                go.Terminal.Input.pasteareaTemp = pastearea.onmousemove;
-                pastearea.onmouseover = null;
-            }
-            var elementUnder = document.elementFromPoint(X, Y);
-            while (!termline) {
-                // Look for special things under the mouse until we've reached the parent container of the line
-                count += 1;
-                if (count > maxRecursion) {
-                    break;
-                }
-                if (!elem) {
-                    elem = elementUnder;
-                }
-                if (typeof(elem.className) == "undefined") {
-                    break;
-                }
-                if (elem.className.indexOf && elem.className.indexOf('✈termline') != -1) {
-                    termline = elem; // End it
-                } else if (elem.tagName.toLowerCase) {
-                    var tagName = elem.tagName.toLowerCase();
-                    if (tagName == 'a' || tagName == 'img' || tagName == 'audio' || tagName == 'video') {
-                        // Anchor elements mean we shouldn't make the pastearea reappear so the user can click on them
-                        if (go.Terminal.pasteAreaTimer) {
-                            clearTimeout(go.Terminal.pasteAreaTimer);
-                            go.Terminal.pasteAreaTimer = null;
-                        }
-                        return;
-                    }
-                } else if (elem.className.indexOf && elem.className.indexOf('✈clickable') != -1) {
-                    // Clickable elements mean we shouldn't make the pastearea reappear
-                    if (go.Terminal.pasteAreaTimer) {
-                        clearTimeout(go.Terminal.pasteAreaTimer);
-                        go.Terminal.pasteAreaTimer = null;
-                    }
-                    return;
-                } else {
-                    elem = elem.parentNode;
-                }
-            }
-            if (go.Terminal.pasteAreaTimer) {
-                return; // Let it return to visibility on its own
-            }
-            go.Terminal.pasteAreaTimer = setTimeout(function() {
-                pastearea.onmousemove = go.Terminal.Input.pasteareaTemp;
-                go.Terminal.pasteAreaTimer = null;
-                if (!u.getSelText()) {
-                    u.showElement(pastearea);
-                }
-            }, timeout);
-        }, false);
+        pastearea.onmousemove = pasteareaMousemove;
         pastearea.addEventListener('mousedown', function(e) {
             // When the user left-clicks assume they're trying to highlight text
             // so bring the terminal to the front and try to emulate normal
@@ -1634,6 +1640,11 @@ go.Base.update(GateOne.Terminal, {
                     u.hideElement(pastearea);
                 }
             }
+        }, true);
+        pastearea.addEventListener('mouseup', function(e) {
+            // If the user doesn't select "Paste" from the context menu we need to make sure we re-enable the mousemove event function:
+            pastearea.onmousemove = pasteareaMousemove;
+            u.showElement(pastearea);
         }, true);
         return pastearea;
     },
@@ -2143,7 +2154,9 @@ go.Base.update(GateOne.Terminal, {
             setKeyboardValue(term);
             // Wrapping this in a timeout seems to resolve the issue where sometimes it isn't scrolled to the bottom when you switch
             setTimeout(function() {
-                u.scrollToBottom(go.Terminal.terminals[term].node);
+                if (go.Terminal.terminals[term].node) {
+                    u.scrollToBottom(go.Terminal.terminals[term].node);
+                }
             }, 50);
         } else {
             return; // This can happen if the terminal closed before a timeout completed.  Not a big deal, ignore
@@ -2642,7 +2655,7 @@ go.Base.update(GateOne.Terminal, {
 
         If this is a new session (and we're not in embedded mode), a new terminal will be created.
         */
-        var newTermSettings, metadata,
+        var newTermSettings, command, metadata,
             termNumbers = [],
             reattachCallbacks = false,
             terminalDB = S.dbObject('terminal');
@@ -2681,10 +2694,11 @@ go.Base.update(GateOne.Terminal, {
                         var shareID = terminals[termNum].share_id;
                         if (!go.Terminal.terminals[termNum]) {
                             metadata = terminals[termNum].metadata || {};
+                            command = terminals[termNum].command || null;
                             if (metadata.resumeEvent) {
                                 E.trigger(metadata.resumeEvent, termNum, terminals[termNum]);
                             } else {
-                                go.Terminal.newTerminal(termNum, {'metadata': metadata});
+                                go.Terminal.newTerminal(termNum, {'command': command, 'metadata': metadata});
                             }
                             go.Terminal.lastTermNumber = termNum;
                         }
@@ -3692,6 +3706,34 @@ go.Base.update(GateOne.Terminal, {
         }
         nonblankLines = screen.slice((lastLine - n)+1, lastLine+1)
         return nonblankLines;
+    },
+    startCapture: function(term) {
+        /**:GateOne.Terminal.startCapture(term)
+
+        Starts capturing terminal output for the given *term*.  The :js:func:`GateOne.Terminal.stopCapture` function can be called to stop the capture and send the captured data to the client via the 'terminal:captured_data' WebSocket action.  This WebSocket action gets attached to :js:func:`GateOne.Terminal.capturedData` which will call the 'terminal:captured_data' event passing the terminal number and the captured data as the only arguments.
+        */
+        term = term || localStorage[prefix+'selectedTerminal'];
+        go.ws.send(JSON.stringify({'terminal:start_capture': term}));
+    },
+    stopCapture: function(term) {
+        /**:GateOne.Terminal.stopCapture(term)
+
+        Stops capturing output on the given *term*.
+        */
+        term = term || localStorage[prefix+'selectedTerminal'];
+        go.ws.send(JSON.stringify({'terminal:stop_capture': term}));
+    },
+    capturedData: function(message) {
+        /**:GateOne.Terminal.capturedData(message)
+
+        Attached to the 'terminal:captured_data' WebSocket action; triggers the 'terminal:captured_data' event like so:
+
+        .. code-block:: javascript
+
+            GateOne.Events.trigger('terminal:captured_data', term, data);
+        */
+        var term = message.term, data = message.data;
+        E.trigger("terminal:captured_data", term, data);
     }
 });
 

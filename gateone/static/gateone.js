@@ -82,7 +82,7 @@ The base object for all Gate One modules/plugins.
 */
 GateOne.__name__ = "GateOne";
 GateOne.__version__ = "1.2";
-GateOne.__commit__ = "20140920142541";
+GateOne.__commit__ = "20151103083231";
 GateOne.__repr__ = function () {
     return "[" + this.__name__ + " " + this.__version__ + "]";
 };
@@ -358,6 +358,7 @@ This object holds all of Gate One's preferences.  Both those things that are mea
     goDiv: '#gateone', // Default element to place gateone inside.
     keepaliveInterval: 60000, // How often we try to ping the Gate One server to check for a connection problem.
     prefix: 'go_', // What to prefix element IDs with (in case you need to avoid a name conflict).  NOTE: There are a few classes that use the prefix too.
+    showAppChooser: true, // Whether or not to show the application chooser
     showTitle: true, // If false, the title will not be shown in the sidebar.
     showToolbar: true, // If false, the toolbar will now be shown in the sidebar.
     skipChecks: false, // Tells GateOne.init() to skip capabilities checks (in case you have your own or are happy with silent failures).
@@ -377,6 +378,7 @@ Properties in this object will get ignored when :js:attr:`GateOne.prefs` is save
     fillContainer: null,
     goDiv: null, // Why an object and not an array?  So the logic is simpler:  "for (var objName in noSavePrefs) ..."
     prefix: null,
+    showAppChooser: null,
     showTitle: null,
     showToolbar: null,
     skipChecks: null,
@@ -453,7 +455,8 @@ var go = GateOne.Base.update(GateOne, {
         var go = GateOne,
             u = go.Utils,
             criticalFailure = false,
-            missingCapabilities = [],
+            missingCapabilities = [], setting,
+            queryPrefs = JSON.parse(u.getQueryVariable('go_prefs') || '{}'),
             parseResponse = function(response) {
                 if (response == 'authenticated') {
                     // Connect (GateOne.initialize() will be called after the connection is made)
@@ -465,8 +468,12 @@ var go = GateOne.Base.update(GateOne, {
                 }
             };
         // Update GateOne.prefs with the settings provided in the calling page
-        for (var setting in prefs) {
+        for (setting in prefs) {
             go.prefs[setting] = prefs[setting];
+        }
+        // Now apply any settings given via query string params
+        for (setting in queryPrefs) {
+            go.prefs[setting] = queryPrefs[setting];
         }
         // Make our prefix unique to our location
         go.prefs.prefix += go.location + '_';
@@ -3165,8 +3172,13 @@ GateOne.Base.update(GateOne.Visual, {
         Creates a new application chooser (akin to a browser's "new tab tab") that displays the application selection screen (and possibly other things in the future).
 
         If *where* is undefined a new workspace will be created and the application chooser will be placed there.  If *where* is ``false`` the new application chooser element will be returned without placing it anywhere.
+
+        .. note:: The application chooser can be disabled by setting ``GateOne.prefs.showAppChooser = false`` or by passing 'go_prefs={"showAppChooser":false}' via the URL query string.
         */
         logDebug("GateOne.Visual.appChooser()");
+        if (!go.prefs.showAppChooser) {
+            return;
+        }
         var u = go.Utils,
             v = go.Visual,
             E = go.Events,
@@ -4011,7 +4023,8 @@ GateOne.Base.update(GateOne.Visual, {
 
         .. tip:: If you wish to use your own workspace-switching animation just write your own function to handle it and call `GateOne.Events.off('go:switch_workspace', GateOne.Visual.slideToWorkspace); GateOne.Events.on('go:switch_workspace', yourFunction);`
         */
-        logDebug('switchWorkspace(' + workspace + ')');
+        var activeWS = localStorage[go.prefs.prefix+'selectedWorkspace'];
+        logDebug('switchWorkspace(' + workspace + '), active workspace: ' + activeWS);
         go.Events.trigger('go:switch_workspace', workspace);
         // NOTE: The following *must* come after the tiggered event above!
         localStorage[go.prefs.prefix+'selectedWorkspace'] = workspace;
@@ -4086,6 +4099,7 @@ GateOne.Base.update(GateOne.Visual, {
         var u = go.Utils,
             v = go.Visual,
             prefix = go.prefs.prefix,
+            activeWS = localStorage[go.prefs.prefix+'selectedWorkspace'],
             count = 0,
             wPX = 0,
             hPX = 0,
@@ -4122,7 +4136,18 @@ GateOne.Base.update(GateOne.Visual, {
                 // Move each workspace into position
                 if (wsNode.id == prefix + 'workspace' + workspace) { // Apply to the workspace we're switching to
                     if (!go.prefs.disableTransitions) {
-                        wsNode.addEventListener(v.transitionEndName, v._slideEndForeground, false);
+                        if (activeWS != workspace) {
+                            wsNode.addEventListener(v.transitionEndName, v._slideEndForeground, false);
+                        } else {
+                            // This will not result in a transition so no transitionEnd event.  We have to force/fake it:
+                            setTimeout(function(e) {
+                                v.disableTransitions(wsNode);
+                                v.applyTransform(wsNode, 'translate(0px, 0px)');
+                                wsNode.style.display = ''; // Reset
+                                v.transitioning = false;
+                                go.Events.trigger("go:ws_transitionend", wsNode);
+                            }, 1050);
+                        }
                     }
                     v.applyTransform(wsNode, 'translate(-' + wPX + 'px, -' + hPX + 'px)');
                     if (go.prefs.disableTransitions) {
@@ -5285,7 +5310,7 @@ GateOne.Storage.dbObject = function(DB) {
                     return;
                 }
                 setTimeout(function() {
-                    go.Storage.get(storeName, key, callback);
+                    self.get(storeName, key, callback);
                 }, 10);
                 go.Storage.failCount[DB] += 1;
                 return;
@@ -5687,11 +5712,13 @@ GateOne.Base.update(GateOne.Storage, {
 
         If provided, the *version* of the database will be set.  Otherwise it will be set to 1.
 
-        Example usage::
+        Example usage:
 
-            >>> var model = {'BookmarksDB': {'bookmarks': {keyPath: "url"}, 'tags': {keyPath: "name"}}};
-            >>> GateOne.Storage.openDB('somedb', function(dbObj) {console.log(dbObj);}, model);
-            >>> // Note that after this DB is opened the IDBDatabase object will be available via GateOne.Storage.databases['somedb']
+        .. code-block:: javascript
+
+            var model = {'BookmarksDB': {'bookmarks': {keyPath: "url"}, 'tags': {keyPath: "name"}}};
+            GateOne.Storage.openDB('somedb', function(dbObj) {console.log(dbObj);}, model);
+            // Note that after this DB is opened the IDBDatabase object will be available via GateOne.Storage.databases['somedb']
         */
         var S = go.Storage;
         if (S._models[DB]) {

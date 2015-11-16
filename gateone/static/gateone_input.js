@@ -31,7 +31,6 @@ GateOne.Base.update(GateOne.Input, {
     */
     init: function() {
         /**:GateOne.Input.init()
-
         Attaches our global keydown/keyup events and touch events
         */
         // Attach our global shortcut handler to window
@@ -39,7 +38,7 @@ GateOne.Base.update(GateOne.Input, {
         window.addEventListener('keyup', go.Input.onGlobalKeyUp, true);
         go.node.addEventListener('keydown', go.Input.onKeyDown, true);
         go.node.addEventListener('keyup', go.Input.onKeyUp, true);
-        // Add some useful touchscreen events
+        // Add some useful touchscreen events (temporarily disabled since they aren't working in all situations yet)
 //         if ('ontouchstart' in document.documentElement) { // Touch-enabled devices only
 //             v.displayMessage("Touch screen detected:<br>Swipe left/right/up/down to switch workspaces.");
 // //             var style = window.getComputedStyle(go.node, null);
@@ -99,7 +98,8 @@ GateOne.Base.update(GateOne.Input, {
         }
         return out;
     },
-    specialKeys: { // Note: Copied from MochiKit.Signal
+    // TODO: See if we can better differentiate between the left and right versions of modifiers
+    specialKeysCode: { // Note: Copied from MochiKit.Signal
     // Also note:  This lookup table is expanded further on in the code
         0: { // DOM_KEY_LOCATION_STANDARD
             8: 'KEY_BACKSPACE',
@@ -135,6 +135,8 @@ GateOne.Base.update(GateOne.Input, {
             109: 'KEY_NUM_PAD_HYPHEN-MINUS', // Strange: Firefox has this the regular hyphen key (i.e. not the one on the num pad)
             110: 'KEY_NUM_PAD_FULL_STOP',
             111: 'KEY_NUM_PAD_SOLIDUS',
+            123: 'KEY_LEFT_CURLY_BRACKET',
+            125: 'KEY_RIGHT_CURLY_BRACKET',
             144: 'KEY_NUM_LOCK',
             145: 'KEY_SCROLL_LOCK',
             173: 'KEY_HYPHEN-MINUS', // No idea why Firefox uses this keycode instead of 189
@@ -154,7 +156,7 @@ GateOne.Base.update(GateOne.Input, {
             221: 'KEY_RIGHT_SQUARE_BRACKET',
             222: 'KEY_APOSTROPHE',
             225: 'KEY_ALT_GRAPH',
-            229: 'KEY_COMPOSE' // NOTE: Firefox doesn't register a key code for the compose key!
+            229: 'KEY_COMPOSE', // NOTE: Firefox doesn't register a key code for the compose key!
         // undefined: 'KEY_UNKNOWN'
         },
         // Sigh, I wish browsers actually implemented these two:
@@ -188,7 +190,76 @@ GateOne.Base.update(GateOne.Input, {
             111: 'KEY_NUM_PAD_SLASH',
         }
     },
-    specialMacKeys: { // Note: Copied from MochiKit.Signal
+    specialKeys: {
+        0: { // DOM_KEY_LOCATION_STANDARD
+            'Backspace': 'KEY_BACKSPACE',
+            'Tab': 'KEY_TAB',
+            'Enter': 'KEY_ENTER',
+            'ShiftLeft': 'KEY_SHIFT',
+            'ShiftRight': 'KEY_SHIFT',
+            'Shift': 'KEY_SHIFT',
+            'ControlLeft': 'KEY_CTRL',
+            'ControlRight': 'KEY_CTRL',
+            'Control': 'KEY_CTRL',
+            'AltLeft': 'KEY_ALT',
+            'AltRight': 'KEY_ALT',
+            'Alt': 'KEY_ALT',
+            'Pause': 'KEY_PAUSE',
+            'CapsLock': 'KEY_CAPS_LOCK',
+            'Escape': 'KEY_ESCAPE',
+            'Space': 'KEY_SPACEBAR',
+            'PageUp': 'KEY_PAGE_UP',
+            'PageDown': 'KEY_PAGE_DOWN',
+            'End': 'KEY_END',
+            'Home': 'KEY_HOME',
+            'ArrowLeft': 'KEY_ARROW_LEFT',
+            'Left': 'KEY_ARROW_LEFT',
+            'ArrowUp': 'KEY_ARROW_UP',
+            'Up': 'KEY_ARROW_UP',
+            'ArrowRight': 'KEY_ARROW_RIGHT',
+            'Right': 'KEY_ARROW_RIGHT',
+            'ArrowDown': 'KEY_ARROW_DOWN',
+            'Down' : 'KEY_ARROW_DOWN',
+            'PrintScreen': 'KEY_PRINT_SCREEN',
+            'Insert': 'KEY_INSERT',
+            'Delete': 'KEY_DELETE',
+            'Semicolon': 'KEY_SEMICOLON', // weird, for Safari and IE only
+            'Equal': 'KEY_EQUALS_SIGN', // Strange: In Firefox this is 61, in Chrome it is 187
+            'OSLeft': 'KEY_WINDOWS_LEFT',
+            'OSRight': 'KEY_WINDOWS_RIGHT',
+            'OS': 'KEY_WINDOWS_LEFT',
+            'Select': 'KEY_SELECT',
+            'NumLock': 'KEY_NUM_LOCK',
+            'ScrollLock': 'KEY_SCROLL_LOCK',
+            'VolumeDown': 'KEY_MEDIA_VOLUME_DOWN',
+            'VolumeUp': 'KEY_MEDIA_VOLUME_UP',
+            'MediaTrackPrevious': 'KEY_MEDIA_PREVIOUS_TRACK',
+            'MediaPlayPause': 'KEY_MEDIA_PLAY_PAUSE',
+            'Comma': 'KEY_COMMA',
+            'Subtract': 'KEY_HYPHEN-MINUS',
+            'Period': 'KEY_FULL_STOP',
+            'Slash': 'KEY_SOLIDUS',
+            'Backquote': 'KEY_GRAVE_ACCENT',
+            'BracketLeft': 'KEY_LEFT_SQUARE_BRACKET',
+            // For some reason Firefox doesn't provide special names for the brackets:
+            '[': 'KEY_LEFT_SQUARE_BRACKET',
+            'Backslash': 'KEY_REVERSE_SOLIDUS',
+            'BracketRight': 'KEY_RIGHT_SQUARE_BRACKET',
+            ']': 'KEY_RIGHT_SQUARE_BRACKET',
+            'Quote': 'KEY_APOSTROPHE',
+            'AltGraph': 'KEY_ALT_GRAPH',
+            'Compose': 'KEY_COMPOSE'
+        },
+        // Sigh, I wish browsers actually implemented these two:
+        3: { // DOM_KEY_LOCATION_NUMPAD
+            'NumpadMultiply': 'KEY_NUM_PAD_ASTERISK',
+            'NumpadAdd': 'KEY_NUM_PAD_PLUS_SIGN',
+            'NumpadSubtract': 'KEY_NUM_PAD_HYPHEN-MINUS', // Strange: Firefox has this the regular hyphen key (i.e. not the one on the num pad)
+            'NumpadDecimal': 'KEY_NUM_PAD_FULL_STOP',
+            'Slash': 'KEY_NUM_PAD_SOLIDUS',
+        }
+    },
+    specialMacKeysCode: { // Note: Copied from MochiKit.Signal
         3: 'KEY_ENTER',
         63289: 'KEY_NUM_PAD_CLEAR',
         63276: 'KEY_PAGE_UP',
@@ -202,6 +273,7 @@ GateOne.Base.update(GateOne.Input, {
         63302: 'KEY_INSERT',
         63272: 'KEY_DELETE'
     },
+    // TODO: Get this returning the new KeyboardEvent.code instead of the charCode (for key.code)
     key: function(e) {
         /**:GateOne.Input.key(e)
 
@@ -211,6 +283,7 @@ GateOne.Base.update(GateOne.Input, {
 
             {
                 type: e.type, // Just preserves it
+                location: e.location, // Also preserves it
                 code: key_code, // Tries event.code before falling back to event.keyCode
                 string: 'KEY_<key string>'
             }
@@ -220,13 +293,19 @@ GateOne.Base.update(GateOne.Input, {
                 type: e.type,
                 location: (e.location || e.keyLocation || 0)
             };
-        if (e.type == 'keydown' || e.type == 'keyup') {
-            k.code = e.code || e.keyCode;
-            // Try the location-specific key string first, then the default location (0), then the Mac version, then finally give up
-            specialKeys = I.specialKeys[k.location] || I.specialKeys[0];
-            k.string = specialKeys[k.code] || I.specialMacKeys[k.code] || 'KEY_UNKNOWN';
+        specialKeys = I.specialKeys[k.location] || I.specialKeys[0];
+        if (e.key) { // DOM3 FTW!  This works regardless of the event type.  How awesome is that?!?  :)
+            k.code = e.key.charCodeAt(0);
+            k.string = specialKeys[e.key] || e.key || 'KEY_UNKNOWN';
             return k;
-        } else if (typeof(e.charCode) != 'undefined' && e.charCode !== 0 && !I.specialMacKeys[e.charCode]) {
+        }
+        specialKeys = I.specialKeysCode[k.location] || I.specialKeysCode[0];
+        if (e.type == 'keydown' || e.type == 'keyup') {
+            k.code = e.charCode || e.keyCode;
+            // Try the location-specific key string first, then the default location (0), then the Mac version, then finally give up
+            k.string = specialKeys[k.code] || I.specialMacKeysCode[k.code] || String.fromCharCode(k.code) || 'KEY_UNKNOWN';
+            return k;
+        } else if (typeof(e.charCode) != 'undefined' && e.charCode !== 0 && !I.specialMacKeysCode[e.charCode]) {
             k.code = e.charCode;
             k.string = String.fromCharCode(k.code);
             return k;
@@ -238,7 +317,7 @@ GateOne.Base.update(GateOne.Input, {
         return undefined;
     },
     mouse: function(e) {
-        /**:GateOne.Input.kmouseey(e)
+        /**:GateOne.Input.mouse(e)
 
         Given an event object, returns an object:
 
@@ -284,7 +363,7 @@ GateOne.Base.update(GateOne.Input, {
         */
         var key = I.key(e),
             modifiers = I.modifiers(e);
-        logDebug('onKeyUp()');
+        logDebug('onKeyUp()', e);
         if (key.string == 'KEY_WINDOWS_LEFT' || key.string == 'KEY_WINDOWS_RIGHT') {
             I.metaHeld = false;
         }
@@ -446,11 +525,9 @@ GateOne.Base.update(GateOne.Input, {
 
         :param string keyString: The KEY_<key> that will invoke this shortcut.
         :param object shortcutObj: A JavaScript object containing two properties:  'modifiers' and 'action'.  See above for their format.
-
         **shortcutObj**
-
-            :param action: A string to be eval()'d or a function to be executed when the provided key combination is pressed.
-            :param modifiers: An object containing the modifier keys that must be pressed for the shortcut to be called.  Example: `{"ctrl": true, "alt": true, "meta": false, "shift": false}`.
+        :param action: A string to be eval()'d or a function to be executed when the provided key combination is pressed.
+        :param modifiers: An object containing the modifier keys that must be pressed for the shortcut to be called.  Example: `{"ctrl": true, "alt": true, "meta": false, "shift": false}`.
 
         Registers the given *shortcutObj* for the given *keyString* by adding a new object to :js:attr:`GateOne.Input.shortcuts`.  Here's an example:
 
@@ -677,7 +754,7 @@ GateOne.Base.update(GateOne.Input, {
 (function () { // Note:  Copied from MochiKit.Signal.
 // Jonathan Gardner, Beau Hartshorne, and Bob Ippolito are JavaScript heroes!
     /* for KEY_0 - KEY_9 */
-    var specialKeys = I.specialKeys;
+    var specialKeys = I.specialKeysCode;
     for (var i = 48; i <= 57; i++) {
         specialKeys[0][i] = 'KEY_' + (i - 48);
     }
@@ -696,11 +773,10 @@ GateOne.Base.update(GateOne.Input, {
 })();
 // Fill out the special Mac keys:
 (function () {
-    var specialMacKeys = I.specialMacKeys;
+    var specialMacKeysCode = I.specialMacKeysCode;
     for (var i = 63236; i <= 63242; i++) {
-        specialMacKeys[i] = 'KEY_F' + (i - 63236 + 1);
+        specialMacKeysCode[i] = 'KEY_F' + (i - 63236 + 1);
     }
 })();
 
 });
-
