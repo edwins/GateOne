@@ -82,7 +82,7 @@ The base object for all Gate One modules/plugins.
 */
 GateOne.__name__ = "GateOne";
 GateOne.__version__ = "1.2";
-GateOne.__commit__ = "20151103083231";
+GateOne.__commit__ = "20160618135724";
 GateOne.__repr__ = function () {
     return "[" + this.__name__ + " " + this.__version__ + "]";
 };
@@ -1035,7 +1035,9 @@ GateOne.Base.update(GateOne.Utils, {
     items: function(obj) {
         /**:GateOne.Utils.items(obj)
 
-        Copied from `MochiKit.Base.items <http://mochi.github.com/mochikit/doc/html/MochiKit/Base.html#fn-items>`_.  Returns an Array of ``[propertyName, propertyValue]`` pairs for the given *obj*.
+        .. note:: Copied from `MochiKit.Base.items <http://mochi.github.com/mochikit/doc/html/MochiKit/Base.html#fn-items>`_.
+
+        Returns an Array of ``[propertyName, propertyValue]`` pairs for the given *obj*.
 
         :param object obj: Any given JavaScript object.
         :returns: Array
@@ -3042,43 +3044,17 @@ GateOne.Base.update(GateOne.Visual, {
             ====================================  =======================
         */
         logDebug("GateOne.Visual.postInit()");
+        var V = go.Visual,
+            E = go.Events;
         if (!go.prefs.embedded) {
             go.Base.superSandbox("GateOne.Visual.postInitStuff", ["GateOne.Input"], function(window, undefined) {
-                go.Input.registerShortcut('KEY_N',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': true, 'meta': false, 'shift': false},
-                        'action': 'GateOne.Visual.appChooser()'
-                    });
-                go.Input.registerShortcut('KEY_W',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': true, 'meta': false, 'shift': false},
-                        'action': 'GateOne.Visual.closeWorkspace(localStorage[GateOne.prefs.prefix+"selectedWorkspace"])'
-                    });
-                go.Input.registerShortcut('KEY_ARROW_LEFT',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': false, 'meta': false, 'shift': true},
-                        'action': 'GateOne.Visual.slideLeft()'
-                    });
-                go.Input.registerShortcut('KEY_ARROW_RIGHT',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': false, 'meta': false, 'shift': true},
-                        'action': 'GateOne.Visual.slideRight()'
-                    });
-                go.Input.registerShortcut('KEY_ARROW_UP',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': false, 'meta': false, 'shift': true},
-                        'action': 'GateOne.Visual.slideUp()'
-                    });
-                go.Input.registerShortcut('KEY_ARROW_DOWN',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': false, 'meta': false, 'shift': true},
-                        'action': 'GateOne.Visual.slideDown()'
-                    });
-                go.Input.registerShortcut('KEY_G',
-                    {'modifiers': {
-                        'ctrl': true, 'alt': true, 'meta': false, 'shift': false},
-                        'action': 'GateOne.Visual.toggleGridView()'
-                    });
+                E.on("go:keydown:ctrl-alt-n", function() { V.appChooser(); });
+                E.on("go:keydown:ctrl-alt-w", function() { V.closeWorkspace(localStorage[go.prefs.prefix+"selectedWorkspace"]); });
+                E.on("go:keydown:ctrl-shift-arrow_left", function() { V.slideLeft(); });
+                E.on("go:keydown:ctrl-shift-arrow_right", function() { V.slideRight(); });
+                E.on("go:keydown:ctrl-shift-arrow_up", function() { V.slideUp(); });
+                E.on("go:keydown:ctrl-shift-arrow_down", function() { V.slideDown(); });
+                E.on("go:keydown:ctrl-alt-g", function() { V.toggleGridView(); });
             });
         }
     },
@@ -3173,11 +3149,17 @@ GateOne.Base.update(GateOne.Visual, {
 
         If *where* is undefined a new workspace will be created and the application chooser will be placed there.  If *where* is ``false`` the new application chooser element will be returned without placing it anywhere.
 
-        .. note:: The application chooser can be disabled by setting ``GateOne.prefs.showAppChooser = false`` or by passing 'go_prefs={"showAppChooser":false}' via the URL query string.
+        .. note:: The application chooser can be disabled by setting ``GateOne.prefs.showAppChooser = false`` or by passing 'go_prefs={"showAppChooser":false}' via the URL query string.  If ``GateOne.prefs.showAppChooser`` is an integer the application chooser will be prevented from being shown that many times before resuming the default behavior (shown).
         */
         logDebug("GateOne.Visual.appChooser()");
         if (!go.prefs.showAppChooser) {
             return;
+        }
+        if (!(isNaN(go.prefs.showAppChooser))) { // It's a number
+            go.prefs.showAppChooser -= 1;
+            if (go.prefs.showAppChooser <= 0) {
+                go.prefs.showAppChooser = true; // Reset to default (show)
+            }
         }
         var u = go.Utils,
             v = go.Visual,
